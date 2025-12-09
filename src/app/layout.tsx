@@ -85,7 +85,7 @@ export default function RootLayout({
               };
 
               // 🔥 SEU PIXEL ATUALIZADO
-              ttq.load('D4RG0KBC77U3KRUJONDG');
+              ttq.load('');
               ttq.page();
             }(window, document, 'ttq');
           `}
