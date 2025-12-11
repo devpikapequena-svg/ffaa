@@ -30,106 +30,28 @@ type CacheEntry = {
 const nicknameCache = new Map<string, CacheEntry>();
 
 /* -----------------------------------------------------
-   FUNÇÃO UTILITÁRIA: DELAY
+   FUNÇÃO: BUSCAR NA TSUNSTUDIO
 ----------------------------------------------------- */
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+async function fetchFromTsunStudio(uid: string): Promise<{ nickname: string }> {
+  const url = `https://fffinfo.tsunstudio.pw/get?uid=${encodeURIComponent(uid)}`;
 
-/* -----------------------------------------------------
-   EXTRAÇÃO DO NICK DO <title>
------------------------------------------------------ */
-function extractNicknameFromTitle(title: string): string {
-  const marker = "Perfil de ";
-  const startIndex = title.indexOf(marker);
-  if (startIndex === -1) return title; // fallback
+  const res = await fetch(url, {
+    cache: "no-store",
+  });
 
-  const after = title.substring(startIndex + marker.length);
-
-  const nickname = after.split(":")[0].trim();
-  return nickname;
-}
-
-/* -----------------------------------------------------
-   ÚNICA FONTE DE VERDADE:
-   https://www.freefiremania.com.br/perfil/{UID}.html
------------------------------------------------------ */
-async function fetchFromFreeFireMania(
-  uid: string
-): Promise<{ nickname: string }> {
-  const url = `https://www.freefiremania.com.br/perfil/${encodeURIComponent(
-    uid
-  )}.html`;
-
-  const MAX_RETRIES = 2;
-  const DELAY_MS = 1000;
-
-  let lastStatus: number | null = null;
-
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    let res: Response;
-
-    try {
-      res = await fetch(url, {
-        cache: "no-store",
-        headers: {
-          // força parecer navegador normal
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-            "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-          "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8",
-        },
-      });
-    } catch (err) {
-      console.error("❌ Erro de rede ao chamar FreeFireMania:", err);
-      if (attempt < MAX_RETRIES) {
-        await sleep(DELAY_MS);
-        continue;
-      }
-      throw new Error("UPSTREAM_FETCH_ERROR");
-    }
-
-    lastStatus = res.status;
-
-    console.log(
-      `🌐 FreeFireMania tentativa ${attempt}/${MAX_RETRIES} — status: ${res.status}`
-    );
-
-    if (res.status === 404) {
-      // UID não existe
-      throw new Error("PLAYER_NOT_FOUND");
-    }
-
-    if (!res.ok) {
-      if (attempt < MAX_RETRIES) {
-        await sleep(DELAY_MS);
-        continue;
-      }
-      throw new Error(`UPSTREAM_STATUS_${res.status}`);
-    }
-
-    const html = await res.text();
-
-    const match = html.match(/<title[^>]*>([^<]*)<\/title>/i);
-    if (!match || !match[1]) {
-      console.warn("⚠️ Título não encontrado no HTML:", html.slice(0, 200));
-      if (attempt < MAX_RETRIES) {
-        await sleep(DELAY_MS);
-        continue;
-      }
-      throw new Error("UPSTREAM_TITLE_NOT_FOUND");
-    }
-
-    const rawTitle = match[1].trim();
-    console.log("🎯 TITLE CAPTURADO:", rawTitle);
-
-    const nickname = extractNicknameFromTitle(rawTitle);
-    console.log("🎯 NICK EXTRAÍDO:", nickname);
-
-    return { nickname };
+  if (!res.ok) {
+    if (res.status === 404) throw new Error("PLAYER_NOT_FOUND");
+    throw new Error(`UPSTREAM_STATUS_${res.status}`);
   }
 
-  throw new Error(`UPSTREAM_ERROR_${lastStatus ?? "UNKNOWN"}`);
+  const data = await res.json();
+
+  if (!data?.AccountInfo?.AccountName) {
+    throw new Error("UPSTREAM_INVALID_DATA");
+  }
+
+  const nickname = data.AccountInfo.AccountName.trim();
+  return { nickname };
 }
 
 /* -----------------------------------------------------
@@ -161,22 +83,22 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // 2️⃣ busca no FreeFireMania
-    const result = await fetchFromFreeFireMania(uid);
+    // 2️⃣ busca via TsuN Studio
+    const result = await fetchFromTsunStudio(uid);
 
     nicknameCache.set(uid, {
       nickname: result.nickname,
-      source: "freefiremania",
+      source: "tsunstudio",
       expiresAt: now + CACHE_TTL_MS,
     });
 
     return NextResponse.json(
-      { nickname: result.nickname, source: "freefiremania" },
+      { nickname: result.nickname, source: "tsunstudio" },
       { status: 200 }
     );
   } catch (err: any) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("Erro ao buscar no FreeFireMania:", msg);
+    console.error("Erro ao buscar no TsuN Studio:", msg);
 
     if (msg === "PLAYER_NOT_FOUND") {
       return NextResponse.json(
@@ -185,22 +107,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (msg === "UPSTREAM_FETCH_ERROR") {
+    if (msg.startsWith("UPSTREAM_STATUS_") || msg === "UPSTREAM_INVALID_DATA") {
       return NextResponse.json(
         {
-          error:
-            "Não foi possível conectar ao FreeFireMania agora. Tente novamente em alguns minutos.",
-          code: "UPSTREAM_FETCH_ERROR",
-        },
-        { status: 503 }
-      );
-    }
-
-    if (msg.startsWith("UPSTREAM_STATUS_") || msg.startsWith("UPSTREAM_")) {
-      return NextResponse.json(
-        {
-          error:
-            "O serviço do FreeFireMania está instável no momento. Tente novamente mais tarde.",
+          error: "O serviço da TsuN Studio está instável no momento.",
           code: msg,
         },
         { status: 502 }
@@ -210,8 +120,7 @@ export async function GET(request: NextRequest) {
     // fallback genérico
     return NextResponse.json(
       {
-        error:
-          "Erro interno ao buscar o jogador. Se persistir, fale com o suporte.",
+        error: "Erro interno ao buscar o jogador. Se persistir, fale com o suporte.",
         code: "INTERNAL",
       },
       { status: 500 }
