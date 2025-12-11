@@ -1,8 +1,9 @@
-// app/layout.tsx
+// src/app/layout.tsx
 import type { Metadata } from "next";
 import "./globals.css";
 import { LayoutClient } from "./LayoutClient";
 import Script from "next/script";
+import { Suspense } from "react";
 
 export const metadata: Metadata = {
   title: "Recarga Jogo",
@@ -84,8 +85,7 @@ export default function RootLayout({
                 e.parentNode.insertBefore(n,e)
               };
 
-              // 🔥 SEU PIXEL ATUALIZADO
-              ttq.load('');
+              ttq.load('D4T0FQJC77U1TV46VF4G');
               ttq.page();
             }(window, document, 'ttq');
           `}
@@ -93,7 +93,9 @@ export default function RootLayout({
       </head>
 
       <body className="min-h-screen bg-background font-sans antialiased">
-        <LayoutClient>{children}</LayoutClient>
+        <Suspense fallback={null}>
+          <LayoutClient>{children}</LayoutClient>
+        </Suspense>
       </body>
     </html>
   );
