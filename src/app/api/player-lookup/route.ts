@@ -6,8 +6,7 @@ import type { NextRequest } from "next/server";
 ----------------------------------------------------- */
 const allowedOrigins = [
   "http://localhost:3000",
-  "https://recargajogo.com.de",
-  "https://www.recargajogo.com.de",
+  "https://www.recargasjogo.cc",
 ];
 
 function isOriginAllowed(request: NextRequest): boolean {
@@ -112,7 +111,7 @@ async function fetchFromFreeFireMania(
 export async function GET(request: NextRequest) {
   // proteção anti-clone
   if (!isOriginAllowed(request)) {
-    return NextResponse.json({ error: "Clonou errado kk" }, { status: 403 });
+    return NextResponse.json({ error: "Erro" }, { status: 403 });
   }
 
   const uid = new URL(request.url).searchParams.get("uid");

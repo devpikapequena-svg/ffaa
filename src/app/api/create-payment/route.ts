@@ -8,8 +8,7 @@ import { PaymentPayload } from '@/interfaces/types';
 
 const allowedOrigins = [
   'http://localhost:3000',
-  'https://recargajogo.com.de',
-  'https://www.recargajogo.com.de'
+  'https://www.recargasjogo.cc',
 ];
 
 function isOriginAllowed(request: NextRequest): boolean {
@@ -20,7 +19,7 @@ function isOriginAllowed(request: NextRequest): boolean {
 
 export async function POST(request: NextRequest) {
   if (!isOriginAllowed(request)) {
-    return new NextResponse(JSON.stringify({ error: 'Clonou errado kk' }), { status: 403 });
+    return new NextResponse(JSON.stringify({ error: 'Erro' }), { status: 403 });
   }
 
   let requestBody: PaymentPayload;
@@ -164,7 +163,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   if (!isOriginAllowed(request)) {
-    return new NextResponse(JSON.stringify({ error: 'Clonou errado kk' }), { status: 403 });
+    return new NextResponse(JSON.stringify({ error: 'Erro' }), { status: 403 });
   }
 
   const { searchParams } = new URL(request.url);
